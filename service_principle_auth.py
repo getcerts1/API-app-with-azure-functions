@@ -2,7 +2,7 @@ import json
 import os
 import subprocess
 
-ACCOUNT_INFO_OUTPUT_FILE = "account_output.json"
+
 SP_OUTPUT_FILE = "sp_output.json"
 SUB_ID = ""
 
@@ -47,7 +47,7 @@ for account in account_list:
         tenant = output.get("tenant", "")
 
     # write to .env file
-    with open("modify_env.env.example", "w") as env_file:
+    with open("modify_env.env", "w") as env_file:
         env_file.write(f"ARM_CLIENT_ID={app_id}\n")
         env_file.write(f"ARM_CLIENT_SECRET={password}\n")
         env_file.write(f"ARM_SUBSCRIPTION_ID={SUB_ID}\n")
