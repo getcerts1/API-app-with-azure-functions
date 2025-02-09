@@ -4,18 +4,18 @@ variable "location" {
   description = "location of resource"
 }
 variable "storage_string" {
-  type = string
-  default = "storage_string"
+  type    = string
+  default = "storage_subnet"
 }
 
 variable "database_string" {
-  type = string
-  default = "database_string"
+  type    = string
+  default = "database_subnet"
 }
 
 variable "sql_admin_password" {
-  type = string
-  sensitive = true
+  type        = string
+  sensitive   = true
   description = "password for sql db admin"
 
 }

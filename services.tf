@@ -1,20 +1,17 @@
-resource "azurerm_app_service_plan" "app_service_plan" {
+resource "azurerm_service_plan" "app_service_plan" {
   name                = "app-service-plan"
   location            = var.location
   resource_group_name = azurerm_resource_group.rg.name
-  kind                = "Linux"
+  os_type                = "Linux"
+  sku_name = "P1v2"
 
-  sku {
-    tier = "Standard"
-    size = "S1"
-  }
 }
 
 resource "azurerm_app_service" "web_app" {
   name                = "web-app"
   location            = var.location
   resource_group_name = azurerm_resource_group.rg.name
-  app_service_plan_id = azurerm_app_service_plan.app_service_plan.id
+  app_service_plan_id = azurerm_service_plan.app_service_plan.id
 
   site_config {
     vnet_route_all_enabled = true
@@ -85,7 +82,9 @@ resource "azurerm_private_endpoint" "sql_private_endpoint" {
   name                = "sql-private-endpoint"
   location            = var.location
   resource_group_name = azurerm_resource_group.rg.name
-  subnet_id           = one([for subnet in azurerm_virtual_network.storage_vnet.subnet : subnet.id if subnet.name == var.database_string ])
+  subnet_id = azurerm_subnet.Database_subnet.id
+
+
 
 
   private_service_connection {
@@ -96,9 +95,9 @@ resource "azurerm_private_endpoint" "sql_private_endpoint" {
   }
 }
 
-# ------------------------------------------
-# Private DNS Setup
-# ------------------------------------------
+
+# Private DNS Setup for storage and sql
+
 
 resource "azurerm_private_dns_zone" "sql_dns_zone" {
   name                = "privatelink.database.windows.net"
@@ -112,14 +111,14 @@ resource "azurerm_private_dns_zone_virtual_network_link" "sql_dns_link" {
   virtual_network_id    = lookup(azurerm_virtual_network.app_vnet, "id")
 }
 
-resource "azurerm_private_dns_zone" "storage_dns_zone" {
+resource "azurerm_private_dns_zone" "function_storage_dns_zone" {
   name                = "privatelink.blob.core.windows.net"
   resource_group_name = azurerm_resource_group.rg.name
 }
 
-resource "azurerm_private_dns_zone_virtual_network_link" "storage_dns_link" {
-  name                  = "storage-dns-link"
+resource "azurerm_private_dns_zone_virtual_network_link" "function_storage_dns_link" {
+  name                  = "function_storage-dns-link"
   resource_group_name   = azurerm_resource_group.rg.name
-  private_dns_zone_name = azurerm_private_dns_zone.storage_dns_zone.name
+  private_dns_zone_name = azurerm_private_dns_zone.function_storage_dns_zone.name
   virtual_network_id    = lookup(azurerm_virtual_network.app_vnet, "id")
 }

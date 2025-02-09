@@ -25,14 +25,14 @@ resource "azurerm_virtual_network" "hub_vnet" {
   resource_group_name = azurerm_resource_group.rg.name
 }
 
-resource "azurerm_subnet" "bastion_subnet" {
+resource "azurerm_subnet" "Bastion_subnet" {
   name                 = "AzureBastionSubnet"
   address_prefixes     = ["10.0.0.0/24"]
   resource_group_name  = azurerm_resource_group.rg.name
   virtual_network_name = azurerm_virtual_network.hub_vnet.name
 }
 
-resource "azurerm_subnet" "firewall_subnet" {
+resource "azurerm_subnet" "Firewall_subnet" {
   name                 = "AzureFirewallSubnet"
   address_prefixes     = ["10.0.1.0/26"]
   resource_group_name  = azurerm_resource_group.rg.name
@@ -55,7 +55,7 @@ resource "azurerm_bastion_host" "bastion_host" {
 
   ip_configuration {
     name                 = "configuration"
-    subnet_id            = azurerm_subnet.bastion_subnet.id
+    subnet_id            = azurerm_subnet.Bastion_subnet.id
     public_ip_address_id = azurerm_public_ip.bastion_pip.id
   }
 }
@@ -78,24 +78,31 @@ resource "azurerm_firewall" "utilities_firewall" {
 # Spoke VNet 1 (App VNet)
 resource "azurerm_virtual_network" "app_vnet" {
   name                = "app-vnet"
-  address_space       = ["10.1.0.0/16"]
+  address_space = ["10.1.0.0/16"]
   location            = var.location
   resource_group_name = azurerm_resource_group.rg.name
 
-  subnet {
-    name           = "web-tier-subnet"
-    address_prefix = "10.1.1.0/24"
-  }
+}
 
-  subnet {
+resource "azurerm_subnet" "Web_tier_subnet" {
+  name = "web-tier-subnet"
+  address_prefixes = ["10.1.1.0/24"]
+  resource_group_name = azurerm_resource_group.rg.name
+  virtual_network_name = azurerm_virtual_network.app_vnet.name
+}
+
+resource "azurerm_subnet" "ApplicationGatewaySubnet" {
     name           = "ApplicationGatewaySubnet"
-    address_prefix = "10.1.0.0/24"
+    address_prefixes = ["10.1.0.0/24"]
+    resource_group_name = azurerm_resource_group.rg.name
+    virtual_network_name = azurerm_virtual_network.app_vnet.name
   }
 
-  subnet {
-    name           = "database_subnet"
-    address_prefix = "10.1.2.0/24"
-  }
+resource "azurerm_subnet" "Database_subnet" {
+  name           = "database_subnet"
+  address_prefixes = ["10.1.0.0/24"]
+  resource_group_name = azurerm_resource_group.rg.name
+  virtual_network_name = azurerm_virtual_network.app_vnet.name
 }
 
 
@@ -106,12 +113,14 @@ resource "azurerm_virtual_network" "storage_vnet" {
   location            = var.location
   resource_group_name = azurerm_resource_group.rg.name
 
-  subnet {
-    name           = "storage_subnet"
-    address_prefix = "10.2.0.0/24"
-  }
 }
 
+resource azurerm_subnet "storage_subnet" {
+    name           = "storage_subnet"
+    address_prefixes = ["10.2.0.0/24"]
+    resource_group_name = azurerm_resource_group.rg.name
+    virtual_network_name = azurerm_virtual_network.storage_vnet.name
+}
 
 resource "azurerm_storage_account" "storage_account" {
   name                     = "utilitiesappstorage"
@@ -125,13 +134,25 @@ resource "azurerm_private_endpoint" "storage_private_endpoint" {
   name                = "storage-private-endpoint"
   location            = var.location
   resource_group_name = azurerm_resource_group.rg.name
-  subnet_id           = one([for subnet in azurerm_virtual_network.storage_vnet.subnet : subnet.id if subnet.name == var.storage_string])
+  subnet_id = azurerm_subnet.Web_tier_subnet.id
 
 
   private_service_connection {
-    name                           = "storage-connection"
+    name                           = "storage-to-web-connection"
     private_connection_resource_id = azurerm_storage_account.storage_account.id
     subresource_names              = ["blob"]
     is_manual_connection           = false
   }
+}
+
+resource "azurerm_private_dns_zone" "web_tier_storage_dns_zone" {
+  name                = "privatelink.blob.core.windows.net"
+  resource_group_name = azurerm_resource_group.rg.name
+}
+
+resource "azurerm_private_dns_zone_virtual_network_link" "web_tier_storage_dns_link" {
+  name                  = "web_tier_storage-dns-link"
+  resource_group_name   = azurerm_resource_group.rg.name
+  private_dns_zone_name = azurerm_private_dns_zone.web_tier_storage_dns_zone.name
+  virtual_network_id    = lookup(azurerm_virtual_network.app_vnet, "id")
 }

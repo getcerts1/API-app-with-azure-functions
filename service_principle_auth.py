@@ -1,6 +1,7 @@
 import json
 import os
 import subprocess
+from dotenv import load_dotenv
 
 
 SP_OUTPUT_FILE = "sp_output.json"
@@ -53,7 +54,19 @@ for account in account_list:
         env_file.write(f"ARM_SUBSCRIPTION_ID={SUB_ID}\n")
         env_file.write(f"ARM_TENANT_ID={tenant}\n")
 
-    os.system("./export_env_var.sh")
+
+    load_dotenv("modify_env.env")
+
+    os.environ["ARM_CLIENT_ID"] = os.getenv("ARM_CLIENT_ID")
+    os.environ["ARM_CLIENT_SECRET"] = os.getenv("ARM_CLIENT_SECRET")
+    os.environ["ARM_SUBSCRIPTION_ID"] = os.getenv("ARM_SUBSCRIPTION_ID")
+    os.environ["ARM_TENANT_ID"] = os.getenv("ARM_TENANT_ID")
+
+    print("ARM_CLIENT_ID:", os.environ.get("ARM_CLIENT_ID"))
+    print("ARM_CLIENT_SECRET:", os.environ.get("ARM_CLIENT_SECRET"))
+    print("ARM_SUBSCRIPTION_ID:", os.environ.get("ARM_SUBSCRIPTION_ID"))
+    print("ARM_TENANT_ID:", os.environ.get("ARM_TENANT_ID"))
+    #os.system("./export_env_var.sh")
     os.system("source export_env_var.sh")
 
 
