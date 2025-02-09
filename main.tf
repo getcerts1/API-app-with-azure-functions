@@ -5,7 +5,6 @@ terraform {
       version = "~> 3.0.2"
     }
   }
-
   required_version = ">= 1.1.0"
 }
 
@@ -18,28 +17,30 @@ resource "azurerm_resource_group" "rg" {
   location = var.location
 }
 
+# Hub VNet
 resource "azurerm_virtual_network" "hub_vnet" {
-  address_space = [10.0.0.0/16]
+  name                = "hub-vnete"
+  address_space       = ["10.0.0.0/16"]
   location            = var.location
-  name                = "hub-vnet"
   resource_group_name = azurerm_resource_group.rg.name
-
-    subnet "azurerm_subnet" "bastion_subnet" {
-    address_prefixes = [10.0.0.0/24]
-    name                 = "AzureBastionSubnet"
-    resource_group_name  = azurerm_resource_group.rg.name
-    virtual_network_name = azurerm_virtual_network.hub_vnet.name
-  }
-
-    subnet "azurerm_subnet" "firewall_subnet" {
-    address_prefixes = [10.0.1.0/26]
-    name                 = "AzureFirewallSubnet"
-    resource_group_name  = azurerm_resource_group.rg.name
-    virtual_network_name = azurerm_virtual_network.hub_vnet.name
-    }
 }
 
-resource "azurerm_public_ip" "Bastion-pip" {
+resource "azurerm_subnet" "bastion_subnet" {
+  name                 = "AzureBastionSubnet"
+  address_prefixes     = ["10.0.0.0/24"]
+  resource_group_name  = azurerm_resource_group.rg.name
+  virtual_network_name = azurerm_virtual_network.hub_vnet.name
+}
+
+resource "azurerm_subnet" "firewall_subnet" {
+  name                 = "AzureFirewallSubnet"
+  address_prefixes     = ["10.0.1.0/26"]
+  resource_group_name  = azurerm_resource_group.rg.name
+  virtual_network_name = azurerm_virtual_network.hub_vnet.name
+}
+
+# Public IPs
+resource "azurerm_public_ip" "bastion_pip" {
   name                = "Bastion-pip"
   location            = var.location
   resource_group_name = azurerm_resource_group.rg.name
@@ -48,139 +49,89 @@ resource "azurerm_public_ip" "Bastion-pip" {
 }
 
 resource "azurerm_bastion_host" "bastion_host" {
-  location            = var.location
   name                = "hub-bastion"
+  location            = var.location
   resource_group_name = azurerm_resource_group.rg.name
 
   ip_configuration {
     name                 = "configuration"
-    subnet_id            = lookup(azurerm_virtual_network.hub_vnet.subnet[0],"id")
-    public_ip_address_id = azurerm_public_ip.Bastion-pip.id
+    subnet_id            = azurerm_subnet.bastion_subnet.id
+    public_ip_address_id = azurerm_public_ip.bastion_pip.id
   }
 }
 
-resource "azurerm_public_ip" "Firewall-pip" {
-  allocation_method   = "Static"
-  location            = var.location
+resource "azurerm_public_ip" "firewall_pip" {
   name                = "Firewall-pip"
+  location            = var.location
   resource_group_name = azurerm_resource_group.rg.name
+  allocation_method   = "Static"
 }
 
 resource "azurerm_firewall" "utilities_firewall" {
+  name                = "utilities_firewall"
   location            = var.location
-  name                = "utilites_firewall"
   resource_group_name = azurerm_resource_group.rg.name
   sku_name            = "AZFW_VNet"
   sku_tier            = "Standard"
 }
 
-
-resource "azurerm_virtual_network" "app-vnet" {
-  address_space = [10.1.0.0/16]
+# Spoke VNet 1 (App VNet)
+resource "azurerm_virtual_network" "app_vnet" {
+  name                = "app-vnet"
+  address_space       = ["10.1.0.0/16"]
   location            = var.location
-  name                = app-vnet
   resource_group_name = azurerm_resource_group.rg.name
 
-    subnet "application_gateway_subnet" {
-      address_prefixes = [10.1.0.0/24]
-      name = "ApplicationGatewaySubnet"
-    }
-
-    subnet "web-tier" {
-      address_prefixes = [10.1.1.0/24]
-      name = "web-tier-subnet"
-    }
-
-    subnet "database_subnet" {
-    address_prefixes = [10.1.2.0/24]
-    name = "database_subnet"
+  subnet {
+    name           = "web-tier-subnet"
+    address_prefix = "10.1.1.0/24"
   }
-}
 
-resource "azurerm_app_service_plan" "utilities_app_service_plan" {
-  name                = "utilities_app_service_plan"
-  location            = var.location
-  resource_group_name = azurerm_resource_group.rg.name
+  subnet {
+    name           = "ApplicationGatewaySubnet"
+    address_prefix = "10.1.0.0/24"
+  }
 
-  sku {
-    tier = "Standard"
-    size = "S1"
+  subnet {
+    name           = "database_subnet"
+    address_prefix = "10.1.2.0/24"
   }
 }
 
 
-
-resource "azurerm_app_service" "app-service_1" {
-  app_service_plan_id = lookup(azurerm_app_service_plan,"id")
+# Spoke VNet 2 (Storage VNet)
+resource "azurerm_virtual_network" "storage_vnet" {
+  name                = "storage_vnet"
+  address_space       = ["10.2.0.0/16"]
   location            = var.location
-  name                = "utilities_app_service"
-  resource_group_name = azurerm_resource_group.rg.name
-}
-
-
-resource "azurerm_public_ip" "app_gateway_public_ip" {
-  allocation_method   = "Static"
-  location            = var.location
-  name                = "app_gateway_public_ip"
-  resource_group_name = azurerm_resource_group.rg.name
-}
-
-
-resource "azurerm_application_gateway" "app-gateway" {
-  location            = var.location
-  name                = "utilites-app-gateway"
   resource_group_name = azurerm_resource_group.rg.name
 
-  sku {
-    name     = "Standard_v2"
-    tier     = "Standard_v2"
-    capacity = 2
-  }
-
-  gateway_ip_configuration {
-    name      = "gateway-ip-config"
-    subnet_id = lookup(azurerm_virtual_network.app-vnet.subnet[0], "id")
-  }
-
-  frontend_port {
-    name = local.frontend_port_name
-    port = 80
-  }
-
-  frontend_ip_configuration {
-    name                 = local.frontend_ip_configuration_name
-    public_ip_address_id = azurerm_public_ip.app_gateway_public_ip.id
-  }
-
-  backend_address_pool {
-    name = local.backend_address_pool_name
-    fqdns = [azurerm_app_service.app-service_1.default_site_hostname]
-  }
-
-  backend_http_settings {
-    name                  = local. http_setting_name
-    cookie_based_affinity = "Disabled"
-    path                  = "/ path1/"
-    port                  = 80
-    protocol              = "Http"
-    request_timeout       = 60
-  }
-
-  http_listener {
-    name                           = local. listener_name
-    frontend_ip_configuration_name = local. frontend_ip_configuration_name
-    frontend_port_name             = local. frontend_port_name
-    protocol                       = "Http"
-  }
-
-  request_routing_rule {
-    name                       = local.request_routing_rule_name
-    priority                   = 9
-    rule_type                  = "Basic"
-    http_listener_name         = local.listener_name
-    backend_address_pool_name  = local.backend_address_pool_name
-    backend_http_settings_name = local.http_setting_name
+  subnet {
+    name           = "storage_subnet"
+    address_prefix = "10.2.0.0/24"
   }
 }
 
 
+resource "azurerm_storage_account" "storage_account" {
+  name                     = "utilitiesappstorage"
+  resource_group_name      = azurerm_resource_group.rg.name
+  location                 = var.location
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
+}
+
+resource "azurerm_private_endpoint" "storage_private_endpoint" {
+  name                = "storage-private-endpoint"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.rg.name
+  subnet_id           = one([for subnet in azurerm_virtual_network.storage_vnet.subnet : subnet.id if subnet.name == var.storage_string])
+
+
+  private_service_connection {
+    name                           = "storage-connection"
+    private_connection_resource_id = azurerm_storage_account.storage_account.id
+    subresource_names              = ["blob"]
+    is_manual_connection           = false
+  }
+}
