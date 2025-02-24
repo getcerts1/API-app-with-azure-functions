@@ -3,7 +3,8 @@ import os
 import subprocess
 from dotenv import load_dotenv
 
-
+""" --- RUN source export_env_var.sh && python service_principle_auth.py FIRST
+"""
 SP_OUTPUT_FILE = "sp_output.json"
 SUB_ID = ""
 
@@ -62,13 +63,21 @@ for account in account_list:
     os.environ["ARM_SUBSCRIPTION_ID"] = os.getenv("ARM_SUBSCRIPTION_ID")
     os.environ["ARM_TENANT_ID"] = os.getenv("ARM_TENANT_ID")
 
+
+    command = "bash -c 'source export_env_var.sh && env'"
+    result = subprocess.run(command, capture_output=True, shell=True, text=True)
+
+    # Parse the output and update os.environ
+    for line in result.stdout.splitlines():
+        key, _, value = line.partition("=")
+        if key.startswith("ARM_"):  # Ensure only relevant vars are set
+            os.environ[key] = value
+
+    # Print the updated environment variables
     print("ARM_CLIENT_ID:", os.environ.get("ARM_CLIENT_ID"))
     print("ARM_CLIENT_SECRET:", os.environ.get("ARM_CLIENT_SECRET"))
     print("ARM_SUBSCRIPTION_ID:", os.environ.get("ARM_SUBSCRIPTION_ID"))
     print("ARM_TENANT_ID:", os.environ.get("ARM_TENANT_ID"))
-    #os.system("./export_env_var.sh")
-    os.system("source export_env_var.sh")
-
 
 if not found:
     print(f"username '{username}' is not found")

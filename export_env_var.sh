@@ -1,25 +1,18 @@
 #!/bin/bash
+#!/bin/bash
 
-# Define the function to unset environment variables when the shell exits
-function unset_env_vars {
-    unset $(grep -v '^#' modify_env.env | cut -d= -f1)
-    echo "Environment variables have been cleared."
-}
+# Load environment variables from modify_env.env
+export TF_VAR_client_id=$(grep 'ARM_CLIENT_ID' modify_env.env | cut -d '=' -f2)
+export TF_VAR_client_secret=$(grep 'ARM_CLIENT_SECRET' modify_env.env | cut -d '=' -f2)
+export TF_VAR_subscription_id=$(grep 'ARM_SUBSCRIPTION_ID' modify_env.env | cut -d '=' -f2)
+export TF_VAR_tenant_id=$(grep 'ARM_TENANT_ID' modify_env.env | cut -d '=' -f2)
 
-# Trap the exit signal and call the unset function
-trap unset_env_vars EXIT
+# Persist in .bashrc for future sessions
+echo "export ARM_CLIENT_ID=${TF_VAR_client_id}" >> ~/.bashrc
+echo "export ARM_CLIENT_SECRET=${TF_VAR_client_secret}" >> ~/.bashrc
+echo "export ARM_SUBSCRIPTION_ID=${TF_VAR_subscription_id}" >> ~/.bashrc
+echo "export ARM_TENANT_ID=${TF_VAR_tenant_id}" >> ~/.bashrc
 
-# Read the .env file and export variables for the current session
-if [ -f modify_env.env ]; then
-    while IFS='=' read -r key value; do
-        # Skip lines that are empty or comments
-        if [[ -z "$key" || "$key" =~ ^# ]]; then
-            continue
-        fi
-        # Export each variable for the current session
-        export "$key"="$value"
-    done < modify_env.env
-fi
+# Apply changes immediately
+source ~/.bashrc
 
-# Notify that the variables have been set
-echo "Environment variables from .env are set for this session."
