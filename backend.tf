@@ -27,5 +27,17 @@ resource "azurerm_linux_function_app" "functionapp129" {
   service_plan_id            = azurerm_service_plan.linuxserviceplan129.id
 
   virtual_network_subnet_id = azurerm_subnet.api-subnet.id
-  site_config {}
+
+  site_config {
+    always_on = true  # Keeps the function app always running
+    application_stack {
+      python_version = "3.11"
+    }
+  }
+
+  app_settings = {
+    "FUNCTIONS_WORKER_RUNTIME" = "python"   # Set Python as the worker runtime
+    "WEBSITE_RUN_FROM_PACKAGE" = "1"        # Enables deployment from a package
+    "SCM_DO_BUILD_DURING_DEPLOYMENT" = "1"  # Ensures dependencies are installed
+  }
 }
