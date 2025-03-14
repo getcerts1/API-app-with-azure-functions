@@ -12,6 +12,12 @@ variable "sql_admin_password" {
 
 }
 
+variable "sql_admin_user" {
+  type = string
+  sensitive = true
+  description = "sql username"
+}
+
 variable "client_id" {
   type = string
   sensitive = true

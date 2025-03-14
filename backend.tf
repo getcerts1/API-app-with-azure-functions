@@ -41,3 +41,35 @@ resource "azurerm_linux_function_app" "functionapp129" {
     "SCM_DO_BUILD_DURING_DEPLOYMENT" = "1"  # Ensures dependencies are installed
   }
 }
+
+resource "azurerm_private_dns_zone" "postgres-private-dns" {
+  name                = "postgresdb129.com"
+  resource_group_name = azurerm_resource_group.rg.name
+}
+
+resource "azurerm_private_dns_zone_virtual_network_link" "postgres-private-link" {
+  name                  = "exampleVnetZone. com"
+  private_dns_zone_name = azurerm_private_dns_zone.postgres-private-dns.name
+  virtual_network_id    = azurerm_virtual_network.backend_vnet. id
+  resource_group_name   = azurerm_resource_group.rg. name
+  depends_on            = [azurerm_subnet.sql_private_endpoint_subnet]
+}
+
+resource "azurerm_postgresql_flexible_server" "postgresdb" {
+  name                          = "postgresdb129"
+  resource_group_name           = azurerm_resource_group.rg.name
+  location                      = var.location
+  version                       = "12"
+  delegated_subnet_id           = azurerm_subnet.sql_private_endpoint_subnet.id
+  private_dns_zone_id           = azurerm_private_dns_zone.postgres-private-dns.id
+  public_network_access_enabled = false
+  administrator_login           = var.sql_admin_user
+  administrator_password        = var.sql_admin_password
+  zone                          = "1"
+
+  storage_mb   = 32768
+  storage_tier = "P30"
+
+  sku_name   = "GP_Standard_D4s_v3"
+  depends_on = [azurerm_private_dns_zone_virtual_network_link.postgres-private-link]
+

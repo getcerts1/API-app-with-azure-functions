@@ -18,9 +18,6 @@ resource "azurerm_subnet" "appgw_subnet" {
   address_prefixes     = ["10.0.0.0/24"]
 }
 
-
-
-
 ### --- SPOKE VNET --- ###          Hosts Backend Services
 
 resource "azurerm_virtual_network" "backend_vnet" {
